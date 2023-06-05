@@ -1,0 +1,450 @@
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.Timer;
+
+public class Bomberman extends JPanel implements ActionListener {
+    private static final int CELL_SIZE = 30;
+    private static final int BOARD_WIDTH = 15;
+    private static final int BOARD_HEIGHT = 15;
+    private static final int WALLS_COUNT = 100;
+    private static final int PLAYER1_START_X = 1;
+    private static final int PLAYER1_START_Y = 1;
+    private static final int PLAYER2_START_X = BOARD_WIDTH - 2;
+    private static final int PLAYER2_START_Y = BOARD_HEIGHT - 2;
+    private static final int DESTROYABLE_WALL = 1;
+    private static final int INDESTRUCTIBLE_WALL = 2;
+    private static final int BOMB = 3;
+    private static final int BOOSTER_SCORE = 4;
+    private static final int BOOSTER_LIFE = 5;
+    private static final int PLAYER_START_LIVES = 20;
+    private static final int PLAYER1_COLOR = Color.RED.getRGB();
+    private static final int PLAYER2_COLOR = Color.BLUE.getRGB();
+    private static final int WALL_COLOR = Color.GRAY.getRGB();
+    private static final int DESTROYABLE_WALL_COLOR = Color.LIGHT_GRAY.getRGB();
+    private static final int BOMB_COLOR = Color.BLACK.getRGB();
+    private static final int BOOSTERCURE_COLOR = Color.GREEN.getRGB();
+    private static final int BOOSTERSCORE_COLOR = Color.yellow.getRGB();
+    
+
+
+    
+
+    private int[][] board;
+    private int player1X, player1Y;
+    private int player2X, player2Y;
+    private int player1Lives, player2Lives;
+    private int player1Score, player2Score;
+    private int player1Bomb, player2Bomb;
+    private int player1BombExplosionTime, player2BombExplosionTime;
+    private int player1Speed, player2Speed;
+    private boolean gameRunning;
+
+    private JButton startButton;
+
+    public Bomberman() {
+        setLayout(null);
+
+        startButton = new JButton("Start");
+        startButton.setBounds(10, BOARD_HEIGHT * CELL_SIZE + 10, 80, 30);
+        startButton.addActionListener(this);
+        add(startButton);
+
+        setFocusable(true);
+        addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyPressed(java.awt.event.KeyEvent evt) {
+                if (gameRunning) {
+                    processPlayerInput(evt);
+                }
+            }
+        });
+
+        initializeGame();
+    }
+
+    private void initializeGame() {
+        board = new int[BOARD_WIDTH][BOARD_HEIGHT];
+        player1X = PLAYER1_START_X;
+        player1Y = PLAYER1_START_Y;
+        player2X = PLAYER2_START_X;
+        player2Y = PLAYER2_START_Y;
+        player1Lives = PLAYER_START_LIVES;
+        player2Lives = PLAYER_START_LIVES;
+        player1Score = 0;
+        player2Score = 0;
+        player1Bomb = 1;
+        player2Bomb = 1;
+        player1BombExplosionTime = 3000;
+        player2BombExplosionTime = 3000;
+        player1Speed = 1;
+        player2Speed = 1;
+        gameRunning = false;
+
+        placeWalls();
+        placeBoosters();
+    }
+
+    
+    // controle dos players
+    private void processPlayerInput(KeyEvent evt) {
+        int keyCode = evt.getKeyCode();
+
+        // Player 1 controls
+        if (keyCode == KeyEvent.VK_UP) {
+            movePlayer(player1X, player1Y - 1, 1);
+        } else if (keyCode == KeyEvent.VK_DOWN) {
+            movePlayer(player1X, player1Y + 1, 1);
+        } else if (keyCode == KeyEvent.VK_LEFT) {
+            movePlayer(player1X - 1, player1Y, 1);
+        } else if (keyCode == KeyEvent.VK_RIGHT) {
+            movePlayer(player1X + 1, player1Y, 1);
+        } else if (keyCode == KeyEvent.VK_SPACE) {
+            placeBomb(player1X, player1Y, 1);
+        }
+
+        // Player 2 controls
+        if (keyCode == KeyEvent.VK_W) {
+            movePlayer(player2X, player2Y - 1, 2);
+        } else if (keyCode == KeyEvent.VK_S) {
+            movePlayer(player2X, player2Y + 1, 2);
+        } else if (keyCode == KeyEvent.VK_A) {
+            movePlayer(player2X - 1, player2Y, 2);
+        } else if (keyCode == KeyEvent.VK_D) {
+            movePlayer(player2X + 1, player2Y, 2);
+        } else if (keyCode == KeyEvent.VK_SHIFT) {
+            placeBomb(player2X, player2Y, 2);
+        }
+    }
+
+    
+    //
+    private void movePlayer(int newX, int newY, int player) {
+        int currentX = player == 1 ? player1X : player2X;
+        int currentY = player == 1 ? player1Y : player2Y;
+
+        if (isValidMove(newX, newY)) {
+            if (board[newX][newY] == BOMB) {
+                if (player == 1) {
+                    player1Lives -= 5;
+                    if (player1Lives <= 0) {
+                        player2Score++;
+                        endGame();
+                    }
+                } else {
+                    player2Lives -= 5;
+                    if (player2Lives <= 0) {
+                        player1Score++;
+                        endGame();
+                    }
+                }
+            } else if (board[newX][newY] == BOOSTER_SCORE) {
+                if (player == 1) {
+                    player1Score += 5;
+                } else {
+                    player2Score += 5;
+                }
+            } else if (board[newX][newY] == BOOSTER_LIFE) {
+                if (player == 1 && player1Lives < 20) {
+                    player1Lives += 10;
+                    if (player1Lives > 20) {
+                        player1Lives = 20;
+                    }
+                } else if (player == 2 && player2Lives < 20) {
+                    player2Lives += 10;
+                    if (player2Lives > 20) {
+                        player2Lives = 20;
+                    }
+                 }
+            }   
+
+            board[currentX][currentY] = 0;
+            board[newX][newY] = player;
+            if (player == 1) {
+                player1X = newX;
+                player1Y = newY;
+            } else {
+                player2X = newX;
+                player2Y = newY;
+            }
+        }
+
+        repaint();
+    }
+// para os jogadores nao passarem pelas paredes
+  private boolean isValidMove(int x, int y) {
+    return x >= 0 && x < BOARD_WIDTH && y >= 0 && y < BOARD_HEIGHT && board[x][y] != INDESTRUCTIBLE_WALL && board[x][y] != DESTROYABLE_WALL;
+}
+
+ // coloca a bomba no mapa
+    private void placeBomb(int x, int y, int player) {
+   
+        int bomb = player == 1 ? player1Bomb : player2Bomb;
+        int bombExplosionTime = player == 1 ? player1BombExplosionTime : player2BombExplosionTime;
+
+        if (bomb == 1) {
+            board[x][y] = BOMB;
+            Timer timer = new Timer(bombExplosionTime, new ActionListener() {
+                public void actionPerformed(ActionEvent evt) {
+                    explodeBomb(x, y, player);
+                }
+            });
+            timer.setRepeats(false);
+            timer.start();
+        } else if (bomb == 2) {
+            placeExplosiveBomb(x, y, player, bombExplosionTime);
+        }
+
+        repaint();
+    }
+
+    
+    private void placeExplosiveBomb(int x, int y, int player, int explosionTime) {
+        board[x][y] = BOMB;
+
+        Timer timer = new Timer(explosionTime, new ActionListener() {
+            public void actionPerformed(ActionEvent evt) {
+                explodeBomb(x, y, player);
+                explodeAdjacentBombs(x, y, player);
+            }
+        });
+        timer.setRepeats(false);
+        timer.start();
+    }
+
+   private void explodeBomb(int x, int y, int player) {
+    board[x][y] = 0;
+
+    int explosionRange = 2; // Raio de explosão da bomba
+
+    // Checar horizontal
+    for (int i = x - explosionRange; i <= x + explosionRange; i++) {
+        if (i < 0 || i >= BOARD_WIDTH) {
+            continue;
+        }
+
+        if (board[i][y] == DESTROYABLE_WALL) {
+            board[i][y] = 0;
+        } else if (board[i][y] == INDESTRUCTIBLE_WALL) {
+            break;
+        } else if (board[i][y] != 0) {
+            if (player == 1 && board[i][y] != 1) {
+                // Jogador 1 atingiu o jogador 2
+                player1Score += 10;
+                player2Lives -= 5;
+                if (player2Lives <= 0) {
+                    player1Score++;
+                    endGame();
+                }
+            } else if (player == 2 && board[i][y] != 2) {
+                // Jogador 2 atingiu o jogador 1
+                player2Score += 10;
+                player1Lives -= 5;
+                if (player1Lives <= 0) {
+                    player2Score++;
+                    endGame();
+                }
+            }
+        }
+    }
+
+    // checar vertical
+    for (int i = y - explosionRange; i <= y + explosionRange; i++) {
+        if (i < 0 || i >= BOARD_HEIGHT) {
+            continue;
+        }
+
+        if (board[x][i] == DESTROYABLE_WALL) {
+            board[x][i] = 0;
+        } else if (board[x][i] == INDESTRUCTIBLE_WALL) {
+            break;
+        } else if (board[x][i] != 0) {
+            if (player == 1 && board[x][i] != 1) {
+                // Jogador 1 atingiu o jogador 2
+                player1Score += 10;
+                player2Lives -= 5;
+                if (player2Lives <= 0) {
+                    player1Score++;
+                    endGame();
+                }
+            } else if (player == 2 && board[x][i] != 2) {
+                // Jogador 2 atingiu o jogador 1
+                player2Score += 10;
+                player1Lives -= 5;
+                if (player1Lives <= 0) {
+                    player2Score++;
+                    endGame();
+                }
+            }
+        }
+    }
+    explodeAdjacentBombs(x, y, player);
+
+    repaint();
+}
+
+    
+// quando uma bomba explode, as bombas proximas tambem explodem
+    private void explodeAdjacentBombs(int x, int y, int player) {
+        // Check horizontally
+        for (int i = x - 1; i >= 0 && i >= x - 2; i--) {
+            if (board[i][y] == BOMB) {
+                explodeBomb(i, y, player);
+            } else {
+                break;
+            }
+        }
+        for (int i = x + 1; i < BOARD_WIDTH && i <= x + 2; i++) {
+            if (board[i][y] == BOMB) {
+                explodeBomb(i, y, player);
+            } else {
+                break;
+            }
+        }
+
+        // Check vertically
+        for (int i = y - 1; i >= 0 && i >= y - 2; i--) {
+            if (board[x][i] == BOMB) {
+                explodeBomb(x, i, player);
+            } else {
+                break;
+            }
+        }
+        for (int i = y + 1; i < BOARD_HEIGHT && i <= y + 2; i++) {
+            if (board[x][i] == BOMB) {
+                explodeBomb(x, i, player);
+            } else {
+                break;
+            }
+        }
+    }
+
+    private void endGame() {
+        gameRunning = false;
+        startButton.setEnabled(true);
+        startButton.setText("Restart");
+    }
+
+    private void placeWalls() {
+        int wallsPlaced = 0;
+
+        while (wallsPlaced < WALLS_COUNT) {
+            int x = (int) (Math.random() * BOARD_WIDTH);
+            int y = (int) (Math.random() * BOARD_HEIGHT);
+
+            if (board[x][y] == 0) {
+                board[x][y] = Math.random() < 0.7 ? DESTROYABLE_WALL : INDESTRUCTIBLE_WALL;
+                wallsPlaced++;
+            }
+        }
+    }
+    
+    
+
+    private void placeBoosters() {
+        int boostersPlaced = 0;
+
+        while (boostersPlaced < 4) {
+            int x = (int) (Math.random() * BOARD_WIDTH);
+            int y = (int) (Math.random() * BOARD_HEIGHT);
+
+            if (board[x][y] == 0) {
+                board[x][y] = Math.random() < 0.5 ? BOOSTER_SCORE : BOOSTER_LIFE;
+                boostersPlaced++;
+            }
+        }
+    }
+
+    @Override
+// desenha paredes, boosters e bombas no mapa
+   protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+
+    // Draw board
+    for (int x = 0; x < BOARD_WIDTH; x++) {
+        for (int y = 0; y < BOARD_HEIGHT; y++) {
+            int cellValue = board[x][y];
+            Color cellColor = Color.white; // Default cell color
+
+            if (cellValue == DESTROYABLE_WALL) {
+                cellColor = new Color(DESTROYABLE_WALL_COLOR);
+            } else if (cellValue == INDESTRUCTIBLE_WALL) {
+                cellColor = new Color(WALL_COLOR);
+            } else if (cellValue == BOMB) {
+                cellColor = new Color(BOMB_COLOR);
+            } else if (board[x][y] == BOMB) {
+                g.setColor(Color.ORANGE); // Defina a cor da bomba
+                g.fillOval(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE); // Desenhe um círculo para representar a bomba
+            } else if (cellValue == BOOSTER_SCORE) {
+                cellColor = new Color(BOOSTERSCORE_COLOR);
+            } else if (cellValue == BOOSTER_LIFE) {
+                cellColor = new Color(BOOSTERCURE_COLOR);
+            }
+
+            g.setColor(cellColor);
+            g.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        }
+    }
+
+    // desenha os players
+    g.setColor(new Color(PLAYER1_COLOR));
+    g.fillRect(player1X * CELL_SIZE, player1Y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+
+    g.setColor(new Color(PLAYER2_COLOR));
+    g.fillRect(player2X * CELL_SIZE, player2Y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+
+    // Draw bombs
+    g.setColor(new Color(BOMB_COLOR));
+    for (int x = 0; x < BOARD_WIDTH; x++) {
+        for (int y = 0; y < BOARD_HEIGHT; y++) {
+            if (board[x][y] == BOMB) {
+                g.fillOval(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
+        }
+    }
+
+    // coloca na tela a vida e o score dos jogadores
+    g.setColor(Color.BLACK);
+    g.setFont(new Font("Arial", Font.BOLD, 14));
+    g.drawString("Player 1 Score: " + player1Score, 10, BOARD_HEIGHT * CELL_SIZE + 40);
+    g.drawString("Player 2 Score: " + player2Score, 10, BOARD_HEIGHT * CELL_SIZE + 60);
+    g.drawString("Player 1 Lives: " + player1Lives, 150, BOARD_HEIGHT * CELL_SIZE + 40);
+    g.drawString("Player 2 Lives: " + player2Lives, 150, BOARD_HEIGHT * CELL_SIZE + 60);
+}
+
+
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource() == startButton) {
+            startButton.setEnabled(false);
+            startButton.setText("Running...");
+            initializeGame();
+            gameRunning = true;
+            requestFocus();
+
+            Timer timer = new Timer(10, new ActionListener() {
+                public void actionPerformed(ActionEvent evt) {
+                    repaint();
+                }
+            });
+            timer.start();
+        }
+    }
+    public static void main(String[] args) {
+
+        JFrame frame = new JFrame("Bomberman Game");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(BOARD_WIDTH * CELL_SIZE + 30, BOARD_HEIGHT * CELL_SIZE + 100);
+        frame.getContentPane().add(new Bomberman());
+        frame.setVisible(true);
+    }
+
+    
+}
